@@ -9,18 +9,27 @@ from datetime import datetime, timedelta
 import io
 import threading
 
-# ✅ শুধু BOT_TOKEN বসান, CHAT_ID আর লাগবে না
+#   BOT_TOKEN 
 BOT_TOKEN = "8531688617:AAGp1iQHCWPPunWCljBeUb5EhodyfDDPIzY"
 
-# ⏱️ 5 মিনিট পর পর আপডেট
-INTERVAL = 5 * 60
+#      
+ALERT_THRESHOLD = 3 # $3
 
-# সব subscriber এর chat_id রাখবে
+#        
+CHECK_INTERVAL = 30 #  
+
+#  subscriber  chat_id 
 subscribers = set()
+
+#         ( subscriber  )
+last_alert_price = {} # {chat_id: price}
+
+#    
+last_known_price = None
 
 
 def get_updates(offset=None):
-    """নতুন /start মেসেজ চেক করে"""
+    """ /start   """
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
     params = {"timeout": 10, "offset": offset}
     try:
@@ -31,7 +40,7 @@ def get_updates(offset=None):
 
 
 def listen_for_users():
-    """Background এ চলবে — নতুন /start ধরবে"""
+    """Background     /start """
     offset = None
     while True:
         updates = get_updates(offset)
@@ -40,26 +49,52 @@ def listen_for_users():
             message = update.get("message", {})
             text = message.get("text", "")
             chat_id = message.get("chat", {}).get("id")
+
             if chat_id and text.startswith("/start"):
                 if chat_id not in subscribers:
                     subscribers.add(chat_id)
+                    #  subscriber   current price  
+                    if last_known_price is not None:
+                        last_alert_price[chat_id] = last_known_price
                     send_message(chat_id,
-                        "✅ <b>সাবস্ক্রাইব করা হয়েছে!</b>\n"
-                        "প্রতি 5 মিনিটে ETH প্রাইস আপডেট পাবেন। 🚀\n\n"
-                        "বন্ধ করতে /stop পাঠান।"
+                        " <b>  !</b>\n"
+                        f"ETH  ${ALERT_THRESHOLD}        \n\n"
+                        "  /stop \n"
+                        "   /price "
                     )
-                    print(f"✅ নতুন subscriber: {chat_id}")
+                    print(f"  subscriber: {chat_id}")
+
             elif chat_id and text.startswith("/stop"):
                 if chat_id in subscribers:
                     subscribers.discard(chat_id)
-                    send_message(chat_id, "❌ আপনাকে সরিয়ে দেওয়া হয়েছে। আবার পেতে /start পাঠান।")
-                    print(f"❌ Unsubscribed: {chat_id}")
+                    last_alert_price.pop(chat_id, None)
+                    send_message(chat_id, "       /start ")
+                    print(f" Unsubscribed: {chat_id}")
+
+            elif chat_id and text.startswith("/price"):
+                #     
+                if last_known_price is not None:
+                    try:
+                        price_data = get_eth_price()
+                        times, values = get_eth_chart_data()
+                        caption = format_caption(price_data, alert_type="manual")
+                        chart = create_chart(times, values, price_data["usd"], price_data["usd_24h_change"])
+                        send_photo_with_caption(chat_id, chart, caption)
+                    except Exception as e:
+                        send_message(chat_id, f"    : {e}")
+                else:
+                    send_message(chat_id, "     ,   ...")
+
         time.sleep(1)
 
 
 def get_eth_price():
     url = "https://api.coingecko.com/api/v3/simple/price"
-    params = {"ids": "ethereum", "vs_currencies": "usd,bdt", "include_24hr_change": "true"}
+    params = {
+        "ids": "ethereum",
+        "vs_currencies": "usd, bdt",
+        "include_24hr_change": "true"
+    }
     response = requests.get(url, params=params, timeout=10)
     return response.json()["ethereum"]
 
@@ -81,7 +116,7 @@ def get_eth_chart_data():
         import math, random
         now = datetime.now()
         times = [now - timedelta(hours=i) for i in range(167, -1, -1)]
-        values = [3200 + math.sin(i/10)*50 + random.uniform(-20,20) for i in range(168)]
+        values = [3200 + math.sin(i / 10) * 50 + random.uniform(-20, 20) for i in range(168)]
         return times, values
 
 
@@ -101,17 +136,19 @@ def create_chart(times, values, current_price, change_24h):
     ax.xaxis.set_major_locator(mdates.DayLocator())
     plt.xticks(color="#aaaaaa", fontsize=9)
     plt.yticks(color="#aaaaaa", fontsize=9)
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:,.0f}"))
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x:, .0f}"))
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    arrow = "▲" if change_24h >= 0 else "▼"
+    arrow = "" if change_24h >= 0 else ""
     sign = "+" if change_24h >= 0 else ""
-    ax.set_title(f"ETH/USD  ${current_price:,.2f}   {arrow} {sign}{change_24h:.2f}%  (7 Days)",
-                 color=color, fontsize=14, fontweight="bold", pad=15)
+    ax.set_title(
+        f"ETH/USD ${current_price:, .2f} {arrow} {sign}{change_24h:.2f}% (7 Days)",
+        color=color, fontsize=14, fontweight="bold", pad=15
+    )
 
     ax.scatter([times[-1]], [values[-1]], color=color, s=60, zorder=5)
-    ax.annotate(f"${values[-1]:,.0f}", (times[-1], values[-1]),
+    ax.annotate(f"${values[-1]:, .0f}", (times[-1], values[-1]),
                 textcoords="offset points", xytext=(-60, 10),
                 color=color, fontsize=9, fontweight="bold")
 
@@ -136,54 +173,99 @@ def send_photo_with_caption(chat_id, photo_buf, caption):
     requests.post(url, files=files, data=data, timeout=20)
 
 
-def format_caption(price_data):
+def format_caption(price_data, alert_type="up", prev_price=None):
     usd = price_data["usd"]
     bdt = price_data["bdt"]
     change_24h = price_data["usd_24h_change"]
-    arrow = "🟢 ▲" if change_24h >= 0 else "🔴 ▼"
+    arrow_24h = " " if change_24h >= 0 else " "
     time_now = datetime.now().strftime("%d %b %Y, %I:%M %p")
+
+    #    
+    if alert_type == "up":
+        diff = usd - prev_price if prev_price else 0
+        header = f" <b>ETH  ! +${diff:, .2f}</b>"
+        alert_emoji = ""
+    elif alert_type == "down":
+        diff = prev_price - usd if prev_price else 0
+        header = f" <b>ETH  ! -${diff:, .2f}</b>"
+        alert_emoji = ""
+    else:
+        header = " <b>ETH Current Price</b>"
+        alert_emoji = ""
+
     return (
-        f"⚡ <b>Ethereum (ETH) Price Update</b>\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"💵 USD: <b>${usd:,.2f}</b>\n"
-        f"🇧🇩 BDT: <b>৳{bdt:,.0f}</b>\n"
-        f"📊 ২৪ঘণ্টার পরিবর্তন: {arrow} {abs(change_24h):.2f}%\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"🕐 {time_now}\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"🛠 Made By @tmmad1"
+        f"{header}\n"
+        f"\n"
+        f" USD: <b>${usd:, .2f}</b>\n"
+        f" BDT: <b>{bdt:, .0f}</b>\n"
+        f"  : {arrow_24h} {abs(change_24h):.2f}%\n"
+        f"{alert_emoji}  : ${ALERT_THRESHOLD} \n"
+        f"\n"
+        f" {time_now}\n"
+        f"\n"
+        f" Made By @tmmad1"
     )
 
 
 def main():
-    print("✅ ETH Price Bot চালু হয়েছে!")
+    global last_known_price
 
-    # Background এ user listener চালু করো
+    print(" ETH Price Alert Bot  !")
+    print(f"  ${ALERT_THRESHOLD}   ")
+    print(f"  {CHECK_INTERVAL}    ")
+
+    # Background  user listener  
     t = threading.Thread(target=listen_for_users, daemon=True)
     t.start()
 
     while True:
-        if subscribers:
-            try:
-                print(f"📡 {len(subscribers)} জনকে পাঠাচ্ছি...")
-                price_data = get_eth_price()
-                times, values = get_eth_chart_data()
-                caption = format_caption(price_data)
+        try:
+            price_data = get_eth_price()
+            current_price = price_data["usd"]
 
+            #    
+            if last_known_price is None:
+                last_known_price = current_price
+                print(f"    : ${current_price:, .2f}")
+
+                #  subscriber     
                 for chat_id in list(subscribers):
+                    if chat_id not in last_alert_price:
+                        last_alert_price[chat_id] = current_price
+
+            else:
+                last_known_price = current_price
+
+            #  subscriber  
+            for chat_id in list(subscribers):
+                # subscriber    
+                base_price = last_alert_price.get(chat_id, current_price)
+                price_diff = current_price - base_price
+
+                if abs(price_diff) >= ALERT_THRESHOLD:
+                    #  !
+                    alert_type = "up" if price_diff > 0 else "down"
+                    direction = " " if price_diff > 0 else " "
+                    print(f" ! {chat_id}  ${base_price:, .2f}  ${current_price:, .2f} ({direction})")
+
                     try:
-                        chart = create_chart(times, values, price_data["usd"], price_data["usd_24h_change"])
+                        times, values = get_eth_chart_data()
+                        caption = format_caption(price_data, alert_type=alert_type, prev_price=base_price)
+                        chart = create_chart(times, values, current_price, price_data["usd_24h_change"])
                         send_photo_with_caption(chat_id, chart, caption)
+
+                        #       
+                        last_alert_price[chat_id] = current_price
+
                     except Exception as e:
-                        print(f"❌ {chat_id} তে পাঠাতে ব্যর্থ: {e}")
+                        print(f" {chat_id}   : {e}")
 
-                print("✅ সবাইকে পাঠানো হয়েছে!")
-            except Exception as e:
-                print(f"❌ ত্রুটি: {e}")
-        else:
-            print("⏳ কোনো subscriber নেই, অপেক্ষা করছি...")
+            print(f"   | ETH: ${current_price:, .2f} | Subscribers: {len(subscribers)}")
 
-        time.sleep(INTERVAL)
+        except Exception as e:
+            print(f"   : {e}")
+
+        time.sleep(CHECK_INTERVAL)
 
 
 if __name__ == "__main__":
