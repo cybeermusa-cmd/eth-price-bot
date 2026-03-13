@@ -12,8 +12,8 @@ import threading
 # ✅ শুধু BOT_TOKEN বসান, CHAT_ID আর লাগবে না
 BOT_TOKEN = "8531688617:AAGp1iQHCWPPunWCljBeUb5EhodyfDDPIzY"
 
-# ⏱️ ২ মিনিট পর পর আপডেট
-INTERVAL = 2 * 60
+# ⏱️ 5 মিনিট পর পর আপডেট
+INTERVAL = 5 * 60
 
 # সব subscriber এর chat_id রাখবে
 subscribers = set()
@@ -45,7 +45,7 @@ def listen_for_users():
                     subscribers.add(chat_id)
                     send_message(chat_id,
                         "✅ <b>সাবস্ক্রাইব করা হয়েছে!</b>\n"
-                        "প্রতি ২ মিনিটে ETH প্রাইস আপডেট পাবেন। 🚀\n\n"
+                        "প্রতি 5 মিনিটে ETH প্রাইস আপডেট পাবেন। 🚀\n\n"
                         "বন্ধ করতে /stop পাঠান।"
                     )
                     print(f"✅ নতুন subscriber: {chat_id}")
