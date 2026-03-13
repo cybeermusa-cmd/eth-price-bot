@@ -13,7 +13,7 @@ BOT_TOKEN = "8531688617:AAGp1iQHCWPPunWCljBeUb5EhodyfDDPIzY"
 CHAT_ID = "5716805509"
 
 # ⏱️ কত মিনিট পর পর আপডেট (৮ মিনিট)
-INTERVAL = 8 * 60
+INTERVAL = 1 * 60
 
 
 def get_eth_price():
