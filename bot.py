@@ -143,15 +143,11 @@ def format_caption(price_data):
     arrow = "🟢 ▲" if change_24h >= 0 else "🔴 ▼"
     time_now = datetime.now().strftime("%d %b %Y, %I:%M %p")
     return (
-        f"⚡ <b>Ethereum (ETH) Price Update</b>\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"💵 USD: <b>${usd:,.2f}</b>\n"
-        f"🇧🇩 BDT: <b>৳{bdt:,.0f}</b>\n"
-        f"📊 ২৪ঘণ্টার পরিবর্তন: {arrow} {abs(change_24h):.2f}%\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"🕐 {time_now}\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"🛠 Made By @tmmad1"
+        f"🎭 <b>@tmmad1</b>\n"
+f"━━━━━━━━━━━━━━━━\n"
+f"{arrow} <b>${usd:,.0f}</b>\n"
+f"📊 {abs(change_24h):.2f}%\n"
+f"🕐 {time_now}"
     )
 
 
