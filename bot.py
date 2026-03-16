@@ -143,11 +143,8 @@ def format_caption(price_data):
     arrow = "🟢 ▲" if change_24h >= 0 else "🔴 ▼"
     time_now = datetime.now().strftime("%d %b %Y, %I:%M %p")
     return (
-        f"🎭 <b>@tmmad1</b>\n"
-f"━━━━━━━━━━━━━━━━\n"
-f"{arrow} <b>${usd:,.0f}</b>\n"
-f"📊 {abs(change_24h):.2f}%\n"
-f"🕐 {time_now}"
+        f"{arrow} ${usd:,.0f} @tmmad1\n"
+    f"📊 {abs(change_24h):.2f}%"
     )
 
 
