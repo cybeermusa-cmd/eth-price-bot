@@ -13,7 +13,7 @@ import threading
 BOT_TOKEN = "8531688617:AAGp1iQHCWPPunWCljBeUb5EhodyfDDPIzY"
 
 # ⏱️ 9 মিনিট পর পর আপডেট
-INTERVAL = 9 * 60
+INTERVAL = 2 * 60
 
 # সব subscriber এর chat_id রাখবে
 subscribers = set()
@@ -140,11 +140,15 @@ def format_caption(price_data):
     usd = price_data["usd"]
     bdt = price_data["bdt"]
     change_24h = price_data["usd_24h_change"]
-    arrow = "🟢 ▲" if change_24h >= 0 else "🔴 ▼"
+    arrow = "📈 ▲" if change_24h >= 0 else "📉 ▼"
     time_now = datetime.now().strftime("%d %b %Y, %I:%M %p")
     return (
-        f"{arrow} ${usd:,.0f} @tmmad1\n"
-    f"📊 {abs(change_24h):.2f}%"
+        arrow = "📈" if change_24h >= 0 else "📉"
+sign = "+" if change_24h >= 0 else "-"
+
+message = (
+    f"${usd:,.0f} {arrow}"
+    f'<a href="https://t.me/tmmusa73">{sign}{abs(change_24h):.2f}% (24H)</a>'
     )
 
 
